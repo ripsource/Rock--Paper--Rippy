@@ -34,7 +34,7 @@ mod roshambo {
             &mut self,
             player: Global<Account>,
             move1: String,
-            port: String,
+            room_code: String,
             clam: Bucket,
         ) {
             {
@@ -55,7 +55,7 @@ mod roshambo {
 
             let deadline = current_time.add_seconds(8).unwrap();
 
-            if self.games.get(&port).is_none() {
+            if self.games.get(&room_code).is_none() {
                 let game = Game {
                     player1: player.clone(),
                     move1,
@@ -67,9 +67,9 @@ mod roshambo {
                     prize_collected: false,
                 };
 
-                self.games.insert(port, game.clone());
+                self.games.insert(room_code, game.clone());
             } else {
-                let game = self.games.get_mut(&port).unwrap().clone();
+                let game = self.games.get_mut(&room_code).unwrap().clone();
 
                 let game_time = game.deadline;
 
@@ -94,7 +94,7 @@ mod roshambo {
 
                     let player2 = player.clone();
 
-                    let mut game = self.games.get_mut(&port).unwrap().clone();
+                    let mut game = self.games.get_mut(&room_code).unwrap().clone();
 
                     game.player2 = Some(player2);
 
@@ -116,18 +116,18 @@ mod roshambo {
 
                     let game = game.clone();
 
-                    self.games.insert(port, game.clone());
+                    self.games.insert(room_code, game.clone());
                 }
             }
         }
 
-        pub fn claim_winnings(&mut self, player: Global<Account>, port: String) -> Option<Bucket> {
+        pub fn claim(&mut self, player: Global<Account>, room_code: String) -> Option<Bucket> {
             {
                 let owner_role = player.get_owner_role();
                 Runtime::assert_access_rule(owner_role.rule);
             }
 
-            let game = self.games.get(&port).unwrap().clone();
+            let game = self.games.get(&room_code).unwrap().clone();
 
             if game.winner.is_some() {
                 let winner = game.winner.unwrap();
@@ -143,7 +143,7 @@ mod roshambo {
                     panic!("You didn't win, so you can't collect the prize.");
                 }
             } else {
-                assert!(game.game_complete, "Game is still in progress.");
+                // draw wager logic also handles if the game didn't happen in time.
 
                 if game.player1 == player {
                     let draw_wager = self.prize_winnings.take(dec!(1));
