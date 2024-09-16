@@ -3,13 +3,20 @@ use scrypto::prelude::*;
 #[derive(ScryptoSbor, Clone)]
 pub struct Game {
     player1: Global<Account>,
-    move1: String,
+    move1: Moves,
     player2: Option<Global<Account>>,
-    move2: String,
+    move2: Option<Moves>,
     winner: Option<Global<Account>>,
     game_complete: bool,
     deadline: Instant,
     prize_collected: bool,
+}
+
+#[derive(ScryptoSbor, Clone, PartialEq)]
+pub enum Moves {
+    Rock,
+    Paper,
+    Rippy,
 }
 
 #[blueprint]
@@ -33,7 +40,7 @@ mod roshambo {
         pub fn play_game(
             &mut self,
             player: Global<Account>,
-            move1: String,
+            player_move: Moves,
             room_code: String,
             clam: Bucket,
         ) {
@@ -58,9 +65,9 @@ mod roshambo {
             if self.games.get(&room_code).is_none() {
                 let game = Game {
                     player1: player.clone(),
-                    move1,
+                    move1: player_move,
                     player2: None,
-                    move2: "".to_string(),
+                    move2: None,
                     winner: None,
                     game_complete: false,
                     deadline,
@@ -90,26 +97,39 @@ mod roshambo {
 
                     let player1_move = game.move1;
 
-                    let player2_move = move1;
-
                     let player2 = player.clone();
 
                     let mut game = self.games.get_mut(&room_code).unwrap().clone();
 
-                    game.player2 = Some(player2);
+                    game.player2 = Some(player2.clone());
 
-                    game.move2 = player2_move.clone();
+                    game.move2 = Some(player_move.clone());
 
-                    if player1_move == player2_move {
-                        game.winner = None;
-                    } else if player1_move == "Rock" && player2_move == "Rippy" {
-                        game.winner = Some(game.player1.clone());
-                    } else if player1_move == "Rippy" && player2_move == "Paper" {
-                        game.winner = Some(game.player1.clone());
-                    } else if player1_move == "Paper" && player2_move == "Rock" {
-                        game.winner = Some(game.player1.clone());
-                    } else {
-                        game.winner = Some(game.player2.clone().unwrap());
+                    match (player1_move, player_move) {
+                        // If both players make the same move, it's a tie
+                        (move1, move2) if move1 == move2 => {
+                            game.winner = None;
+                        }
+
+                        // Rock beats Rippy
+                        (Moves::Rock, Moves::Rippy) => {
+                            game.winner = Some(game.player1.clone());
+                        }
+
+                        // Rippy beats Paper
+                        (Moves::Rippy, Moves::Paper) => {
+                            game.winner = Some(game.player1.clone());
+                        }
+
+                        // Paper beats Rock
+                        (Moves::Paper, Moves::Rock) => {
+                            game.winner = Some(game.player1.clone());
+                        }
+
+                        // Otherwise, player 2 wins
+                        _ => {
+                            game.winner = Some(player2);
+                        }
                     }
 
                     game.game_complete = true;
